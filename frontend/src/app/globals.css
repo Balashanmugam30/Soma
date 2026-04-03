@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f5f7;
+  --surface: #ffffff;
+  --surface-secondary: rgba(255, 255, 255, 0.72);
+  --foreground: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #111827;
+  --accent-foreground: #f5f5f7;
+  --hover: rgba(29, 29, 31, 0.06);
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(245, 245, 247, 0));
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-hover: var(--hover);
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-jetbrains-mono);
+  --shadow-soft: var(--shadow-soft);
+}
+
+html[data-theme="dark"] {
+  --background: #0f1115;
+  --surface: #17191f;
+  --surface-secondary: rgba(23, 25, 31, 0.76);
+  --foreground: #f5f5f7;
+  --muted: #a1a1aa;
+  --accent: #f5f5f7;
+  --accent-foreground: #111827;
+  --hover: rgba(255, 255, 255, 0.08);
+  --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.24);
+  --glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.1), rgba(15, 17, 21, 0));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-instrument-sans), sans-serif;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(17, 24, 39, 0.12);
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    var(--glow),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 245, 247, 0) 24rem);
+}
+
+html[data-theme="dark"] .app-shell {
+  background:
+    var(--glow),
+    linear-gradient(180deg, rgba(23, 25, 31, 0.88), rgba(15, 17, 21, 0) 24rem);
+}
+
+.surface-card {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.glass-panel {
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(22px);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: rgba(110, 110, 115, 0.24);
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
