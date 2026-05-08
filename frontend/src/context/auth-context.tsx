@@ -17,7 +17,7 @@ import {
 import {
   auth,
   enableAuthPersistence,
-  googleProvider,
+  provider,
   isFirebaseConfigured,
 } from "@/lib/firebase";
 import {
@@ -33,7 +33,8 @@ import type { AuthUser } from "@/types";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  profileReady: boolean;
+  signInWithGoogle: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
   isConfigured: boolean;
 }
@@ -52,6 +53,7 @@ function normalizeUser(user: User): AuthUser {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(isFirebaseConfigured);
+  const [profileReady, setProfileReady] = useState(!isFirebaseConfigured);
   const setUserProfile = useAppStore((state) => state.setUserProfile);
   const setConversations = useAppStore((state) => state.setConversations);
   const setSkills = useAppStore((state) => state.setSkills);
@@ -65,39 +67,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanupFns: Array<() => void> = [];
 
     const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      console.log("[SOMA] Auth state changed", nextUser ? nextUser.uid : "signed-out");
       cleanupFns.forEach((cleanup) => cleanup());
       cleanupFns.length = 0;
+      setUser(nextUser ? normalizeUser(nextUser) : null);
+      setLoading(false);
 
       if (!nextUser) {
-        setUser(null);
+        setProfileReady(true);
         setUserProfile(null);
         resetWorkspace();
-        setLoading(false);
         return;
       }
 
-      await upsertUserProfile(nextUser);
-      await ensureDefaultSkills(nextUser.uid);
+      setProfileReady(false);
 
-      setUser(normalizeUser(nextUser));
+      try {
+        await upsertUserProfile(nextUser);
+        await ensureDefaultSkills(nextUser.uid);
+        let resolvedProfile = false;
+        const readinessTimeout = window.setTimeout(() => {
+          if (!resolvedProfile) {
+            console.warn("[SOMA] Profile hydration timed out, continuing with fallback state");
+            setProfileReady(true);
+          }
+        }, 2500);
 
-      cleanupFns.push(
-        listenToUserProfile(nextUser.uid, (profile) => {
-          setUserProfile(profile);
-        }),
-      );
-      cleanupFns.push(
-        listenToConversations(nextUser.uid, (conversations) => {
-          setConversations(conversations);
-        }),
-      );
-      cleanupFns.push(
-        listenToSkills(nextUser.uid, (skills) => {
-          setSkills(skills);
-        }),
-      );
-
-      setLoading(false);
+        cleanupFns.push(
+          listenToUserProfile(nextUser.uid, (profile) => {
+            setUserProfile(profile);
+            if (!resolvedProfile) {
+              resolvedProfile = true;
+              window.clearTimeout(readinessTimeout);
+              setProfileReady(true);
+            }
+          }),
+        );
+        cleanupFns.push(
+          listenToConversations(nextUser.uid, (conversations) => {
+            setConversations(conversations);
+          }),
+        );
+        cleanupFns.push(
+          listenToSkills(nextUser.uid, (skills) => {
+            setSkills(skills);
+          }),
+        );
+        cleanupFns.push(() => window.clearTimeout(readinessTimeout));
+      } catch (error) {
+        console.error("[SOMA] Auth state sync failed", error);
+        setProfileReady(true);
+      }
     });
 
     return () => {
@@ -109,15 +129,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      loading,
+      loading: isFirebaseConfigured ? loading : false,
+      profileReady,
       isConfigured: isFirebaseConfigured,
-      signIn: async () => {
-        if (!auth || !googleProvider) {
-          throw new Error("Firebase is not configured.");
+      signInWithGoogle: async () => {
+        console.log("Login clicked");
+
+        if (!auth || !provider) {
+          const error = new Error("Firebase is not configured.");
+          console.error("[SOMA] Google Sign-In failed", error);
+          throw error;
         }
 
-        await enableAuthPersistence();
-        await signInWithPopup(auth, googleProvider);
+        try {
+          console.log("[SOMA] Triggering Google popup");
+          await enableAuthPersistence();
+          const result = await signInWithPopup(auth, provider);
+          const normalizedUser = normalizeUser(result.user);
+          console.log("LOGIN SUCCESS:", normalizedUser);
+          return normalizedUser;
+        } catch (error) {
+          console.error("LOGIN ERROR:", error);
+          return null;
+        }
       },
       signOut: async () => {
         if (!auth) {
@@ -128,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetWorkspace();
       },
     }),
-    [loading, resetWorkspace, user],
+    [loading, profileReady, resetWorkspace, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

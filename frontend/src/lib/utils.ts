@@ -1,4 +1,12 @@
-import type { ChatMessage, Conversation, MessageRole, Skill } from "@/types";
+import type {
+  AgentId,
+  AttachmentMeta,
+  ChatMessage,
+  Conversation,
+  MessageRole,
+  Skill,
+  ThinkingStep,
+} from "@/types";
 import { createDefaultWorkflowSteps } from "@/lib/constants";
 
 export function cn(...values: Array<string | false | null | undefined>) {
@@ -39,6 +47,8 @@ export function createMessage(
   content: string,
   skillId?: string | null,
   workflow = role === "ai" ? createDefaultWorkflowSteps() : undefined,
+  steps?: ThinkingStep[],
+  attachments?: AttachmentMeta[],
 ): ChatMessage {
   return {
     id: getId(),
@@ -47,6 +57,8 @@ export function createMessage(
     timestamp: nowIso(),
     skillId: skillId ?? null,
     workflow,
+    steps,
+    attachments,
   };
 }
 
@@ -96,11 +108,62 @@ export function formatDateLabel(timestamp: string) {
 }
 
 export function extractSkillPreview(skill: Skill) {
-  return skill.prompt.length > 120
-    ? `${skill.prompt.slice(0, 120).trim()}...`
-    : skill.prompt;
+  const previewSource = skill.content || skill.prompt || "";
+  return previewSource.length > 120
+    ? `${previewSource.slice(0, 120).trim()}...`
+    : previewSource;
 }
 
 export function normalizeWorkflowMessage(content: string) {
   return content.trim() || "I have the result ready.";
+}
+
+export function inferSkillCategory(skill: Pick<Skill, "id" | "title" | "description" | "prompt">): AgentId {
+  const signature = `${skill.id} ${skill.title} ${skill.description} ${skill.prompt}`.toLowerCase();
+
+  if (
+    signature.includes("task") ||
+    signature.includes("workflow") ||
+    signature.includes("command") ||
+    signature.includes("reminder")
+  ) {
+    return "controller";
+  }
+
+  if (
+    signature.includes("research") ||
+    signature.includes("summary") ||
+    signature.includes("summar") ||
+    signature.includes("analysis") ||
+    signature.includes("insight")
+  ) {
+    return "executor";
+  }
+
+  return "planner";
+}
+
+export function normalizeSkillRecord(skill: Skill): Skill {
+  const title = skill.title?.trim() || skill.name?.trim() || "Untitled skill";
+  const prompt = skill.prompt?.trim() || skill.content?.trim() || "";
+  const description = skill.description?.trim() || prompt || "Custom skill";
+
+  return {
+    ...skill,
+    title,
+    name: skill.name?.trim() || title,
+    description,
+    prompt,
+    content: skill.content?.trim() || prompt,
+    category: skill.category ?? inferSkillCategory({
+      id: skill.id,
+      title,
+      description,
+      prompt,
+    }),
+  };
+}
+
+export function getSkillDisplayName(skill: Skill) {
+  return skill.name?.trim() || skill.title || "Untitled skill";
 }

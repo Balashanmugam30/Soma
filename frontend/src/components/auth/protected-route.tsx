@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { useAppStore } from "@/store/app-store";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const userProfile = useAppStore((state) => state.userProfile);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    if (loading) {
+    if (!loading || timedOut) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTimedOut(true);
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, timedOut]);
+
+  useEffect(() => {
+    if (loading && !timedOut) {
       return;
     }
 
@@ -19,17 +30,23 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       router.replace("/");
       return;
     }
+  }, [loading, router, timedOut, user]);
 
-    if (userProfile && !userProfile.languageSelected) {
-      router.replace("/language");
-    }
-  }, [loading, router, user, userProfile]);
-
-  if (loading || !user || !userProfile) {
+  if (loading && !timedOut) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center px-6">
         <div className="surface-card rounded-3xl px-8 py-6 text-sm text-muted">
           Loading workspace...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="app-shell flex min-h-screen items-center justify-center px-6">
+        <div className="surface-card rounded-3xl px-8 py-6 text-sm text-muted">
+          Redirecting...
         </div>
       </div>
     );

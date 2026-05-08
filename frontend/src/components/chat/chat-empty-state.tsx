@@ -14,7 +14,7 @@ export function ChatEmptyState({
       <div className="max-w-2xl text-center">
         <p className="text-sm uppercase tracking-[0.28em] text-muted">SOMA</p>
         <h1 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-          {dictionary.workspace.emptyTitle}
+          {dictionary.workspace.startFirstConversation}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-balance text-sm leading-7 text-muted sm:text-base">
           {dictionary.workspace.emptySubtitle}
@@ -25,7 +25,7 @@ export function ChatEmptyState({
               key={example}
               type="button"
               onClick={() => onPromptClick(example)}
-              className="surface-card rounded-full px-4 py-3 text-sm text-foreground transition hover:-translate-y-0.5 hover:bg-hover"
+              className="rounded-full bg-[var(--bg-secondary)] px-4 py-2 text-sm text-[var(--text-main)] transition hover:bg-[var(--bg-main)]"
             >
               {example}
             </button>

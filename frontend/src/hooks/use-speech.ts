@@ -1,104 +1,204 @@
 "use client";
 
-import { useState } from "react";
-
-type SpeechRecognitionResultEvent = {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>;
-};
-
-type SpeechRecognitionErrorEvent = {
-  error: string;
-};
-
-interface SpeechRecognitionInstance {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognitionInstance;
-}
-
-type SpeechWindow = Window &
-  typeof globalThis & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
+import { useRef, useState } from "react";
+import { postSpeechToText, postTextToSpeech } from "@/services/api";
+import type { Language } from "@/types";
 
 export function useSpeech() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const cancelledRef = useRef(false);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playbackResolveRef = useRef<(() => void) | null>(null);
 
   const recognitionSupported =
     typeof window !== "undefined" &&
-    Boolean(
-      (window as SpeechWindow).SpeechRecognition ||
-        (window as SpeechWindow).webkitSpeechRecognition,
-    );
+    "MediaRecorder" in window &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
 
-  const synthesisSupported =
-    typeof window !== "undefined" && "speechSynthesis" in window;
+  const synthesisSupported = typeof window !== "undefined" && "Audio" in window;
 
-  async function listenOnce() {
+  async function listenOnce(language: Language = "en") {
     if (!recognitionSupported) {
       throw new Error("Speech recognition is not supported in this browser.");
     }
 
-    const SpeechRecognition =
-      (window as SpeechWindow).SpeechRecognition ||
-      (window as SpeechWindow).webkitSpeechRecognition;
-
     return new Promise<string>((resolve, reject) => {
-      if (!SpeechRecognition) {
-        reject(new Error("Speech recognition is not supported in this browser."));
-        return;
-      }
+      void navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          streamRef.current = stream;
+          chunksRef.current = [];
+          cancelledRef.current = false;
 
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = navigator.language || "en-US";
-      recognition.onresult = (event) => {
-        const transcript = event.results[0]?.[0]?.transcript ?? "";
-        resolve(transcript);
-      };
-      recognition.onerror = (event) => {
-        reject(new Error(event.error || "Unable to capture voice input."));
-      };
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+          const preferredMimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+            ? "audio/webm;codecs=opus"
+            : "audio/webm";
+          const recorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
+          mediaRecorderRef.current = recorder;
 
-      setIsListening(true);
-      recognition.start();
+          recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              chunksRef.current.push(event.data);
+            }
+          };
+
+          recorder.onerror = () => {
+            setIsListening(false);
+            setIsProcessingVoice(false);
+            reject(new Error("Unable to capture voice input."));
+          };
+
+          recorder.onstop = async () => {
+            stream.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+            mediaRecorderRef.current = null;
+            setIsListening(false);
+
+            if (cancelledRef.current) {
+              chunksRef.current = [];
+              setIsProcessingVoice(false);
+              resolve("");
+              return;
+            }
+
+            if (chunksRef.current.length === 0) {
+              setIsProcessingVoice(false);
+              reject(new Error("Unable to capture voice input."));
+              return;
+            }
+
+            setIsProcessingVoice(true);
+
+            try {
+              const audioBlob = new Blob(chunksRef.current, {
+                type: recorder.mimeType || "audio/webm",
+              });
+              chunksRef.current = [];
+              const transcript = await postSpeechToText(audioBlob, language);
+              resolve(transcript);
+            } catch (error) {
+              reject(
+                error instanceof Error
+                  ? error
+                  : new Error("Unable to capture voice input."),
+              );
+            } finally {
+              setIsProcessingVoice(false);
+            }
+          };
+
+          setIsListening(true);
+          setIsProcessingVoice(false);
+          recorder.start();
+        })
+        .catch(() => {
+          setIsListening(false);
+          setIsProcessingVoice(false);
+          reject(new Error("Speech recognition is not supported in this browser."));
+        });
     });
   }
 
-  function speak(text: string) {
+  function stopListening() {
+    cancelledRef.current = true;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setIsListening(false);
+    setIsProcessingVoice(false);
+  }
+
+  function stopSpeaking() {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.onended = null;
+      activeAudioRef.current.onerror = null;
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
+    }
+
+    playbackResolveRef.current?.();
+    playbackResolveRef.current = null;
+    setIsSpeaking(false);
+  }
+
+  async function speak(text: string, language: Language = "en") {
     if (!synthesisSupported) {
       throw new Error("Speech synthesis is not supported in this browser.");
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    stopSpeaking();
+    setIsSpeaking(true);
+
+    try {
+      const audio = await postTextToSpeech(text, language);
+      if (!audio) {
+        throw new Error("Text-to-speech request failed.");
+      }
+
+      const player = new Audio(`data:audio/mp3;base64,${audio}`);
+      activeAudioRef.current = player;
+      await new Promise<void>(async (resolve, reject) => {
+        let settled = false;
+
+        const finish = (callback?: () => void) => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          playbackResolveRef.current = null;
+          activeAudioRef.current = null;
+          setIsSpeaking(false);
+          callback?.();
+        };
+
+        playbackResolveRef.current = () => finish(resolve);
+
+        player.onended = () => finish(resolve);
+        player.onerror = () => {
+          finish(() => reject(new Error("Text-to-speech playback failed.")));
+        };
+
+        try {
+          await player.play();
+        } catch (error) {
+          finish(() =>
+            reject(
+              error instanceof Error
+                ? error
+                : new Error("Text-to-speech request failed."),
+            ),
+          );
+        }
+      });
+    } catch (error) {
+      setIsSpeaking(false);
+      throw error instanceof Error
+        ? error
+        : new Error("Text-to-speech request failed.");
+    }
   }
 
   return {
     isListening,
     isSpeaking,
+    isProcessingVoice,
     recognitionSupported,
     synthesisSupported,
     listenOnce,
+    stopListening,
+    stopSpeaking,
     speak,
   };
 }

@@ -1,16 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f5f7;
-  --surface: #ffffff;
-  --surface-secondary: rgba(255, 255, 255, 0.72);
-  --foreground: #1d1d1f;
-  --muted: #6e6e73;
-  --accent: #111827;
-  --accent-foreground: #f5f5f7;
-  --hover: rgba(29, 29, 31, 0.06);
+  --bg-main: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-sidebar: var(--bg-secondary);
+  --text-main: #000000;
+  --background: var(--bg-main);
+  --surface: var(--bg-secondary);
+  --surface-secondary: var(--bg-secondary);
+  --foreground: var(--text-main);
+  --muted: #6b7280;
+  --accent: var(--bg-secondary);
+  --accent-foreground: var(--text-main);
+  --hover: var(--bg-secondary);
   --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.04);
-  --glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(245, 245, 247, 0));
+  --glow: none;
 }
 
 @theme inline {
@@ -27,21 +31,42 @@
   --shadow-soft: var(--shadow-soft);
 }
 
-html[data-theme="dark"] {
-  --background: #0f1115;
-  --surface: #17191f;
-  --surface-secondary: rgba(23, 25, 31, 0.76);
-  --foreground: #f5f5f7;
+.dark {
+  --bg-main: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-sidebar: var(--bg-secondary);
+  --text-main: #ffffff;
+  --background: var(--bg-main);
+  --surface: var(--bg-secondary);
+  --surface-secondary: var(--bg-secondary);
+  --foreground: var(--text-main);
   --muted: #a1a1aa;
-  --accent: #f5f5f7;
-  --accent-foreground: #111827;
-  --hover: rgba(255, 255, 255, 0.08);
+  --accent: var(--bg-secondary);
+  --accent-foreground: var(--text-main);
+  --hover: var(--bg-secondary);
   --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.24);
-  --glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.1), rgba(15, 17, 21, 0));
+  --glow: none;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 html,
@@ -50,6 +75,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-instrument-sans), sans-serif;
+  scroll-behavior: smooth;
   transition:
     background-color 180ms ease,
     color 180ms ease,
@@ -59,6 +85,9 @@ body {
 
 body {
   margin: 0;
+  user-select: text;
+  background-color: var(--bg-main);
+  color: var(--text-main);
 }
 
 a {
@@ -77,21 +106,39 @@ button {
   cursor: pointer;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 29, 31, 0.14);
+}
+
+html[data-theme="dark"] button:focus-visible,
+html[data-theme="dark"] input:focus-visible,
+html[data-theme="dark"] select:focus-visible,
+html[data-theme="dark"] textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgba(245, 245, 247, 0.18);
+}
+
 ::selection {
-  background: rgba(17, 24, 39, 0.12);
+  background: rgba(120, 120, 120, 0.4);
+}
+
+.dark ::selection,
+[data-theme="dark"] ::selection,
+html[data-theme="dark"] ::selection {
+  background: rgba(255, 255, 255, 0.3);
+  color: black;
 }
 
 .app-shell {
   min-height: 100vh;
-  background:
-    var(--glow),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 245, 247, 0) 24rem);
+  background: var(--background);
 }
 
 html[data-theme="dark"] .app-shell {
-  background:
-    var(--glow),
-    linear-gradient(180deg, rgba(23, 25, 31, 0.88), rgba(15, 17, 21, 0) 24rem);
+  background: var(--background);
 }
 
 .surface-card {
@@ -120,6 +167,71 @@ html[data-theme="dark"] .app-shell {
 .scrollbar-subtle::-webkit-scrollbar-thumb {
   background: rgba(110, 110, 115, 0.24);
   border-radius: 999px;
+}
+
+/* Completely hide scrollbars */
+*::-webkit-scrollbar {
+width: 0px !important;
+height: 0px !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  }
+
+/* Prevent white scrollbar track */
+html, body {
+background: var(--bg-main);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+
+  40% {
+    transform: scale(1);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1.2s infinite;
+}
+
+@keyframes soundbar {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: scaleY(1.1);
+    opacity: 1;
+  }
+}
+
+.soundbar {
+  transform-origin: bottom;
+  animation: soundbar 0.9s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

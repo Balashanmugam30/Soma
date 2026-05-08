@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SOMA",
+  title: "Soma",
   description: "Premium AI workspace for planning, execution, memory, and reusable skills.",
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${instrumentSans.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full">
         <AppProviders>{children}</AppProviders>

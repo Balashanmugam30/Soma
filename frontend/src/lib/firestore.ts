@@ -15,7 +15,7 @@ import {
 } from "firebase/firestore";
 import { DEFAULT_SKILLS } from "@/lib/constants";
 import { db } from "@/lib/firebase";
-import { nowIso } from "@/lib/utils";
+import { normalizeSkillRecord, nowIso } from "@/lib/utils";
 import type {
   Conversation,
   Language,
@@ -32,6 +32,14 @@ function ensureDb() {
   }
 
   return db;
+}
+
+function cleanData<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
+}
+
+function cleanObject<T>(obj: T): T {
+  return cleanData(obj);
 }
 
 function userRef(userId: string) {
@@ -68,14 +76,20 @@ function normalizeConversation(
 }
 
 function normalizeSkill(id: string, data: Record<string, unknown>): Skill {
-  return {
+  return normalizeSkillRecord({
     id,
     title: String(data.title ?? "Untitled skill"),
+    name: String(data.name ?? data.title ?? "Untitled skill"),
     description: String(data.description ?? ""),
     prompt: String(data.prompt ?? ""),
+    content: String(data.content ?? data.prompt ?? ""),
+    category:
+      data.category === "controller" || data.category === "planner" || data.category === "executor"
+        ? data.category
+        : undefined,
     createdAt: String(data.createdAt ?? nowIso()),
     isSystem: Boolean(data.isSystem),
-  };
+  });
 }
 
 export async function upsertUserProfile(
@@ -95,7 +109,7 @@ export async function upsertUserProfile(
     updatedAt: timestamp,
   };
 
-  await setDoc(userRef(user.uid), profile, { merge: true });
+  await setDoc(userRef(user.uid), cleanData(profile), { merge: true });
 }
 
 export function listenToUserProfile(
@@ -138,7 +152,7 @@ export function listenToSkills(userId: string, callback: (skills: Skill[]) => vo
 }
 
 export async function saveConversation(userId: string, conversation: Conversation) {
-  await setDoc(doc(conversationCollection(userId), conversation.id), conversation, {
+  await setDoc(doc(conversationCollection(userId), conversation.id), cleanData(conversation), {
     merge: true,
   });
 }
@@ -150,7 +164,7 @@ export async function renameConversation(
 ) {
   await setDoc(
     doc(conversationCollection(userId), conversationId),
-    { title, updatedAt: nowIso() },
+    cleanData({ title, updatedAt: nowIso() }),
     { merge: true },
   );
 }
@@ -169,19 +183,23 @@ export async function clearConversations(userId: string) {
 export async function ensureDefaultSkills(userId: string) {
   const batch = writeBatch(ensureDb());
   DEFAULT_SKILLS.forEach((skill) => {
-    batch.set(doc(skillCollection(userId), skill.id), skill, { merge: true });
+    batch.set(doc(skillCollection(userId), skill.id), cleanData(skill), { merge: true });
   });
   await batch.commit();
 }
 
 export async function saveSkill(userId: string, skill: Skill) {
-  await setDoc(doc(skillCollection(userId), skill.id), skill, { merge: true });
+  await setDoc(doc(skillCollection(userId), skill.id), cleanObject(skill), { merge: true });
+}
+
+export async function deleteSkill(userId: string, skillId: string) {
+  await deleteDoc(doc(skillCollection(userId), skillId));
 }
 
 export async function saveLanguagePreference(userId: string, language: Language) {
   await setDoc(
     userRef(userId),
-    { preferredLanguage: language, languageSelected: true, updatedAt: nowIso() },
+    cleanData({ preferredLanguage: language, languageSelected: true, updatedAt: nowIso() }),
     { merge: true },
   );
 }
@@ -189,7 +207,7 @@ export async function saveLanguagePreference(userId: string, language: Language)
 export async function saveThemePreference(userId: string, theme: ThemeMode) {
   await setDoc(
     userRef(userId),
-    { themePreference: theme, updatedAt: nowIso() },
+    cleanData({ themePreference: theme, updatedAt: nowIso() }),
     { merge: true },
   );
 }
@@ -200,13 +218,13 @@ export async function updateMemoryProfile(
 ) {
   await setDoc(
     memoryRef(userId),
-    {
+    cleanData({
       preferences: partial.preferences ?? [],
       repeatedPatterns: partial.repeatedPatterns ?? [],
       usageHabits: partial.usageHabits ?? [],
       lastSkillId: partial.lastSkillId ?? null,
       updatedAt: nowIso(),
-    },
+    }),
     { merge: true },
   );
 }

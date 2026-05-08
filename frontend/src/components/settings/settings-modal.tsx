@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/context/language-context";
 import { useTheme } from "@/context/theme-context";
-import { LANGUAGE_OPTIONS, THEME_OPTIONS } from "@/lib/constants";
+import { LANGUAGE_OPTIONS } from "@/lib/constants";
 import { Modal } from "@/components/common/modal";
 
 interface SettingsModalProps {
@@ -20,6 +20,11 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const { dictionary, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
+  const themeOptions = [
+    { value: "light" as const, label: dictionary.settings.themeLight },
+    { value: "dark" as const, label: dictionary.settings.themeDark },
+    { value: "system" as const, label: dictionary.settings.themeSystem },
+  ];
 
   return (
     <Modal
@@ -51,7 +56,7 @@ export function SettingsModal({
         <div className="space-y-3">
           <p className="text-sm font-medium text-foreground">{dictionary.topbar.theme}</p>
           <div className="flex flex-wrap gap-2">
-            {THEME_OPTIONS.map((option) => (
+            {themeOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"

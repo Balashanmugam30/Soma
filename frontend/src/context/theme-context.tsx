@@ -46,12 +46,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const resolved = resolveTheme(theme);
+    document.documentElement.classList.toggle("dark", resolved === "dark");
     document.documentElement.dataset.theme = resolved;
 
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = () => {
-        document.documentElement.dataset.theme = mediaQuery.matches ? "dark" : "light";
+        const nextTheme = mediaQuery.matches ? "dark" : "light";
+        document.documentElement.classList.toggle("dark", nextTheme === "dark");
+        document.documentElement.dataset.theme = nextTheme;
       };
 
       mediaQuery.addEventListener("change", handleChange);

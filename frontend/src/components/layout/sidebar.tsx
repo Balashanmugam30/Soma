@@ -1,193 +1,493 @@
 "use client";
 
-import { BrainCircuit, Menu, PencilLine, PlusCircle, Sparkles, Trash2, X } from "lucide-react";
+import { memo, useEffect, useMemo, useState } from "react";
+import {
+  Bot,
+  BrainCircuit,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  PlusCircle,
+  Sparkles,
+} from "lucide-react";
 import { useLanguage } from "@/context/language-context";
-import { extractSkillPreview, formatDateLabel } from "@/lib/utils";
-import { cn } from "@/lib/utils";
-import type { Conversation, Skill } from "@/types";
+import { cn, formatDateLabel } from "@/lib/utils";
+import type { AgentRuntime, Conversation, CustomAgent } from "@/types";
 
 interface SidebarProps {
-  open: boolean;
+  isOpen: boolean;
+  toggle: () => void;
+  agents: AgentRuntime[];
+  selectedAgentId: string | null;
   conversations: Conversation[];
   activeConversationId: string | null;
-  skills: Skill[];
-  selectedSkillId: string | null;
-  onToggle: (open: boolean) => void;
+  customAgents: CustomAgent[];
+  pinnedConversationIds: string[];
+  pinnedCustomAgentIds: string[];
+  selectedCustomAgentId: string | null;
   onNewChat: () => void;
   onSelectConversation: (conversationId: string) => void;
+  onSelectAgent: (agentId: AgentRuntime["id"]) => void;
+  onRenameAgent: (agent: AgentRuntime) => void;
+  onPinAgent: (agentId: AgentRuntime["id"]) => void;
+  onDeleteAgent: (agentId: AgentRuntime["id"]) => void;
   onRenameConversation: (conversation: Conversation) => void;
   onDeleteConversation: (conversation: Conversation) => void;
-  onSelectSkill: (skillId: string) => void;
-  onCreateSkill: () => void;
+  onPinConversation: (conversationId: string) => void;
+  onCreateAgent: () => void;
+  onSelectCustomAgent: (agentId: string) => void;
+  onRenameCustomAgent: (agent: CustomAgent) => void;
+  onPinCustomAgent: (agentId: string) => void;
+  onDeleteCustomAgent: (agentId: string) => void;
 }
 
-export function Sidebar({
-  open,
-  conversations,
-  activeConversationId,
-  skills,
-  selectedSkillId,
-  onToggle,
-  onNewChat,
-  onSelectConversation,
-  onRenameConversation,
-  onDeleteConversation,
-  onSelectSkill,
-  onCreateSkill,
-}: SidebarProps) {
-  const { dictionary } = useLanguage();
-  const selectedSkill = skills.find((skill) => skill.id === selectedSkillId) ?? null;
+interface ItemMenuProps {
+  itemId: string;
+  openMenuId: string | null;
+  onToggleMenu: (itemId: string) => void;
+  onRename?: () => void;
+  onPin?: () => void;
+  onDelete?: () => void;
+}
 
+function ItemMenu({
+  itemId,
+  openMenuId,
+  onToggleMenu,
+  onRename,
+  onPin,
+  onDelete,
+}: ItemMenuProps) {
   return (
-    <>
+    <div className="relative">
       <button
         type="button"
-        onClick={() => onToggle(true)}
-        className="fixed left-4 top-4 z-30 rounded-full bg-surface p-3 shadow-soft transition hover:bg-hover lg:hidden"
-        aria-label="Open sidebar"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleMenu(itemId);
+        }}
+        className="p-1 opacity-60 transition-all duration-200 ease-in-out hover:opacity-100"
+        aria-label="Open menu"
       >
-        <Menu size={18} />
+        <MoreHorizontal size={16} />
       </button>
-      {open ? (
-        <button
-          type="button"
-          onClick={() => onToggle(false)}
-          className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden"
-          aria-label="Close sidebar backdrop"
-        />
-      ) : null}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 flex w-[min(22rem,86vw)] flex-col bg-surface px-4 py-5 shadow-soft transition-transform duration-300 lg:static lg:w-80 lg:translate-x-0 lg:rounded-[32px]",
-          open ? "translate-x-0" : "-translate-x-[110%]",
-        )}
-      >
-        <div className="flex items-center justify-between px-2">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-muted">SOMA</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">Workspace</p>
-          </div>
+
+      {openMenuId === itemId ? (
+        <div className="absolute right-0 top-8 z-50 w-32 rounded-lg border border-white/10 bg-[var(--bg-secondary)] shadow-lg transition-all duration-200 ease-in-out">
           <button
             type="button"
-            onClick={() => onToggle(false)}
-            className="rounded-full p-2 text-muted transition hover:bg-hover hover:text-foreground lg:hidden"
-            aria-label="Close sidebar"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRename?.();
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)]"
           >
-            <X size={18} />
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPin?.();
+            }}
+            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)]"
+          >
+            Pin
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
+            className="w-full px-3 py-2 text-left text-red-400 hover:bg-[var(--bg-hover)]"
+          >
+            Delete
           </button>
         </div>
+      ) : null}
+    </div>
+  );
+}
 
+export const Sidebar = memo(function Sidebar({
+  isOpen,
+  toggle,
+  agents,
+  selectedAgentId,
+  conversations,
+  activeConversationId,
+  customAgents,
+  pinnedConversationIds,
+  pinnedCustomAgentIds,
+  selectedCustomAgentId,
+  onNewChat,
+  onSelectConversation,
+  onSelectAgent,
+  onRenameAgent,
+  onPinAgent,
+  onDeleteAgent,
+  onRenameConversation,
+  onDeleteConversation,
+  onPinConversation,
+  onCreateAgent,
+  onSelectCustomAgent,
+  onRenameCustomAgent,
+  onPinCustomAgent,
+  onDeleteCustomAgent,
+}: SidebarProps) {
+  const { dictionary } = useLanguage();
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const handleClick = () => setOpenMenuId(null);
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
+
+  const filteredChats = useMemo(
+    () =>
+      conversations.filter((conversation) =>
+        conversation.title.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [conversations, search],
+  );
+
+  const orderedChats = useMemo(() => {
+    return [...filteredChats].sort((left, right) => {
+      const leftPinned = pinnedConversationIds.includes(left.id);
+      const rightPinned = pinnedConversationIds.includes(right.id);
+      if (leftPinned === rightPinned) {
+        return right.updatedAt.localeCompare(left.updatedAt);
+      }
+      return leftPinned ? -1 : 1;
+    });
+  }, [filteredChats, pinnedConversationIds]);
+
+  const orderedCustomAgents = useMemo(() => {
+    return [...(customAgents ?? [])].sort((left, right) => {
+      const leftPinned = pinnedCustomAgentIds.includes(left.id);
+      const rightPinned = pinnedCustomAgentIds.includes(right.id);
+      if (leftPinned === rightPinned) {
+        return right.createdAt.localeCompare(left.createdAt);
+      }
+      return leftPinned ? -1 : 1;
+    });
+  }, [customAgents, pinnedCustomAgentIds]);
+
+  return (
+    <div className="flex flex-col h-full text-[var(--text-main)]">
+      <div className="flex items-center justify-between p-3">
+        <div />
+        <button
+          type="button"
+          onClick={toggle}
+          className="p-2 text-[var(--text-main)] opacity-70 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100"
+          aria-label={isOpen ? dictionary.labels.closeSidebar : dictionary.labels.openSidebar}
+        >
+          {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        </button>
+      </div>
+
+      <div className="px-2 space-y-3">
         <button
           type="button"
           onClick={onNewChat}
-          className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-accent-foreground transition hover:opacity-90"
+          className={cn(
+            "w-full rounded-xl bg-[var(--bg-main)] text-[var(--text-main)] opacity-70 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100",
+            isOpen
+              ? "inline-flex items-center justify-start gap-2 px-4 py-3 text-sm font-medium"
+              : "inline-flex items-center justify-center px-0 py-3",
+          )}
         >
           <PlusCircle size={16} />
-          {dictionary.workspace.newChat}
+          {isOpen ? dictionary.workspace.newChat : null}
         </button>
 
-        <section className="mt-8 min-h-0 flex-1 overflow-hidden">
-          <div className="flex items-center gap-2 px-2">
-            <BrainCircuit size={16} className="text-muted" />
-            <p className="text-sm font-medium text-foreground">
-              {dictionary.sidebar.conversations}
-            </p>
+        {isOpen ? (
+          <input
+            type="text"
+            placeholder="Search chats..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none"
+          />
+        ) : null}
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-scroll no-scrollbar px-2">
+        <div className="my-3 border-t border-white/10" />
+
+        <section>
+          <div className={cn("flex items-center gap-2 px-3", !isOpen && "justify-center px-0")}>
+            <Bot size={16} className="text-[var(--text-main)] opacity-60" />
+            {isOpen ? (
+              <p className="px-3 text-xs uppercase tracking-wide opacity-50">
+                {dictionary.sidebar.agents}
+              </p>
+            ) : null}
           </div>
-          <div className="scrollbar-subtle mt-4 space-y-2 overflow-y-auto pr-1">
-            {conversations.length === 0 ? (
-              <p className="px-2 text-sm text-muted">{dictionary.sidebar.noConversations}</p>
-            ) : (
-              conversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className={cn(
-                    "rounded-3xl px-3 py-3 transition hover:bg-hover",
-                    activeConversationId === conversation.id && "bg-background",
-                  )}
-                >
+          <div className="mt-3 space-y-2">
+            {agents?.map((agent) => (
+              <div
+                key={agent.id}
+                className={cn(
+                  "group w-full rounded-2xl text-[var(--text-main)] opacity-70 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100",
+                  isOpen ? "px-4 py-3" : "flex justify-center px-0 py-3",
+                  selectedAgentId === agent.id && "bg-[var(--bg-main)] opacity-100",
+                )}
+              >
+                {isOpen ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onSelectAgent(agent.id)}
+                        className="min-w-0 flex-1 text-left"
+                        aria-pressed={selectedAgentId === agent.id}
+                      >
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-main)]">{agent.name}</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-main)] opacity-55">
+                          {agent.description}
+                        </p>
+                      </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full transition-all duration-200 ease-in-out",
+                            selectedAgentId === agent.id
+                              ? "bg-green-500 w-2 h-2 rounded-full"
+                              : "bg-[var(--text-main)] opacity-20",
+                          )}
+                        />
+                        <div className="relative opacity-0 transition-all duration-200 ease-in-out group-hover:opacity-100">
+                          <ItemMenu
+                            itemId={agent.id}
+                            openMenuId={openMenuId}
+                            onToggleMenu={(itemId) =>
+                              setOpenMenuId(openMenuId === itemId ? null : itemId)
+                            }
+                            onRename={() => {
+                              onRenameAgent(agent);
+                              setOpenMenuId(null);
+                            }}
+                            onPin={() => {
+                              onPinAgent(agent.id);
+                              setOpenMenuId(null);
+                            }}
+                            onDelete={() => {
+                              onDeleteAgent(agent.id);
+                              setOpenMenuId(null);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                   <button
                     type="button"
-                    onClick={() => onSelectConversation(conversation.id)}
-                    className="w-full text-left"
+                    onClick={() => onSelectAgent(agent.id)}
+                    className="flex w-full justify-center"
+                    aria-pressed={selectedAgentId === agent.id}
                   >
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {conversation.title}
-                    </p>
-                    <p className="mt-1 text-xs text-muted">
-                      {formatDateLabel(conversation.updatedAt)}
-                    </p>
+                    <span
+                      className={cn(
+                        "h-2.5 w-2.5 rounded-full transition-all duration-200 ease-in-out",
+                        selectedAgentId === agent.id
+                          ? "bg-green-500 w-2 h-2 rounded-full"
+                          : "bg-[var(--text-main)] opacity-20",
+                      )}
+                    />
                   </button>
-                  <div className="mt-3 flex items-center gap-2">
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="my-3 border-t border-white/10" />
+
+        <section>
+          <div className={cn("flex items-center gap-2 px-3", !isOpen && "justify-center px-0")}>
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-[var(--text-main)] opacity-60" />
+              {isOpen ? (
+                <p className="px-3 text-xs uppercase tracking-wide opacity-50">
+                  My Agent
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            {isOpen ? (
+              <button
+                type="button"
+                onClick={onCreateAgent}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--bg-main)] px-4 py-3 text-sm font-medium text-[var(--text-main)] opacity-75 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100"
+              >
+                <PlusCircle size={16} />
+                Create Agent
+              </button>
+            ) : null}
+            {orderedCustomAgents.length === 0 ? (
+              <p className={cn("px-6 text-sm text-[var(--text-main)] opacity-45", !isOpen && "hidden")}>
+                No custom agents yet
+              </p>
+            ) : (
+              orderedCustomAgents?.map((agent) => (
+                <div
+                  key={agent.id}
+                  className={cn(
+                    "group w-full rounded-2xl text-[var(--text-main)] opacity-80 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100",
+                    isOpen ? "px-4 py-3" : "flex justify-center px-0 py-3",
+                    selectedCustomAgentId === agent.id && "bg-[var(--bg-main)] opacity-100",
+                  )}
+                >
+                  {isOpen ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onSelectCustomAgent(agent.id)}
+                        className="min-w-0 flex-1 text-left"
+                        aria-pressed={selectedCustomAgentId === agent.id}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{agent.name}</p>
+                          <p className="mt-1 text-xs leading-5 opacity-55">{agent.description}</p>
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full transition-all duration-200 ease-in-out",
+                            selectedCustomAgentId === agent.id
+                              ? "bg-green-500 w-2 h-2 rounded-full"
+                              : "bg-[var(--text-main)] opacity-20",
+                          )}
+                        />
+                        <div className="relative opacity-0 transition-all duration-200 ease-in-out group-hover:opacity-100">
+                          <ItemMenu
+                            itemId={agent.id}
+                            openMenuId={openMenuId}
+                            onToggleMenu={(itemId) =>
+                              setOpenMenuId(openMenuId === itemId ? null : itemId)
+                            }
+                            onRename={() => {
+                              onRenameCustomAgent(agent);
+                              setOpenMenuId(null);
+                            }}
+                            onPin={() => {
+                              onPinCustomAgent(agent.id);
+                              setOpenMenuId(null);
+                            }}
+                            onDelete={() => {
+                              onDeleteCustomAgent(agent.id);
+                              setOpenMenuId(null);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => onRenameConversation(conversation)}
-                      className="rounded-full p-2 text-muted transition hover:bg-surface hover:text-foreground"
-                      aria-label={dictionary.sidebar.rename}
+                      onClick={() => onSelectCustomAgent(agent.id)}
+                      className="flex w-full justify-center"
+                      aria-pressed={selectedCustomAgentId === agent.id}
                     >
-                      <PencilLine size={14} />
+                      <span
+                        className={cn(
+                          "h-2.5 w-2.5 rounded-full transition-all duration-200 ease-in-out",
+                          selectedCustomAgentId === agent.id
+                            ? "bg-green-500 w-2 h-2 rounded-full"
+                            : "bg-[var(--text-main)] opacity-20",
+                        )}
+                      />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteConversation(conversation)}
-                      className="rounded-full p-2 text-muted transition hover:bg-surface hover:text-foreground"
-                      aria-label={dictionary.sidebar.delete}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  )}
                 </div>
               ))
             )}
           </div>
         </section>
 
-        <section className="mt-8">
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-muted" />
-              <p className="text-sm font-medium text-foreground">{dictionary.workspace.skills}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onCreateSkill}
-              className="rounded-full px-3 py-2 text-xs text-muted transition hover:bg-hover hover:text-foreground"
-            >
-              {dictionary.workspace.createSkill}
-            </button>
+        <div className="my-3 border-t border-white/10" />
+
+        <section>
+          <div className={cn("flex items-center gap-2 px-3", !isOpen && "justify-center px-0")}>
+            <BrainCircuit size={16} className="text-[var(--text-main)] opacity-60" />
+            {isOpen ? (
+              <p className="px-3 text-xs uppercase tracking-wide opacity-50">
+                {dictionary.sidebar.conversations}
+              </p>
+            ) : null}
           </div>
-          <div className="mt-4 space-y-2">
-            {skills.length === 0 ? (
-              <p className="px-2 text-sm text-muted">{dictionary.sidebar.noSkills}</p>
+          <div className="mt-3 space-y-2">
+            {orderedChats.length === 0 ? (
+              <p className={cn("px-2 text-sm text-[var(--text-main)] opacity-45", !isOpen && "hidden")}>
+                {search ? "No matching chats" : dictionary.workspace.startFirstConversation}
+              </p>
             ) : (
-              skills.map((skill) => (
-                <button
-                  key={skill.id}
-                  type="button"
-                  onClick={() => onSelectSkill(skill.id)}
+              orderedChats.map((conversation) => (
+                <div
+                  key={conversation.id}
                   className={cn(
-                    "w-full rounded-3xl px-4 py-3 text-left transition hover:bg-hover",
-                    selectedSkillId === skill.id && "bg-background",
+                    "group relative rounded-2xl text-[var(--text-main)] opacity-70 transition-all duration-200 ease-in-out hover:bg-[var(--bg-main)] hover:opacity-100",
+                    isOpen ? "px-3 py-2" : "px-0 py-3",
+                    activeConversationId === conversation.id && "bg-[var(--bg-main)] opacity-100",
                   )}
                 >
-                  <p className="text-sm font-medium text-foreground">{skill.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-muted">{skill.description}</p>
-                </button>
+                  {isOpen ? (
+                    <div className="group flex items-center justify-between rounded-lg px-3 py-2 hover:bg-[var(--bg-hover)]">
+                      <button
+                        type="button"
+                        onClick={() => onSelectConversation(conversation.id)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="truncate text-sm font-medium">{conversation.title}</p>
+                        <p className="mt-1 text-xs opacity-45">
+                          {formatDateLabel(conversation.updatedAt)}
+                        </p>
+                      </button>
+                      <div className="relative opacity-0 transition-all duration-200 ease-in-out group-hover:opacity-100">
+                        <ItemMenu
+                          itemId={conversation.id}
+                          openMenuId={openMenuId}
+                          onToggleMenu={(itemId) =>
+                            setOpenMenuId(openMenuId === itemId ? null : itemId)
+                          }
+                          onRename={() => {
+                            onRenameConversation(conversation);
+                            setOpenMenuId(null);
+                          }}
+                          onPin={() => {
+                            onPinConversation(conversation.id);
+                            setOpenMenuId(null);
+                          }}
+                          onDelete={() => {
+                            onDeleteConversation(conversation);
+                            setOpenMenuId(null);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSelectConversation(conversation.id)}
+                      className="flex w-full justify-center"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-[var(--text-main)] opacity-25" />
+                    </button>
+                  )}
+                </div>
               ))
             )}
           </div>
-          {selectedSkill ? (
-            <div className="mt-4 rounded-3xl bg-background px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted">
-                {dictionary.sidebar.skillPreview}
-              </p>
-              <p className="mt-2 text-sm font-medium text-foreground">{selectedSkill.title}</p>
-              <p className="mt-2 text-xs leading-6 text-muted">
-                {extractSkillPreview(selectedSkill)}
-              </p>
-            </div>
-          ) : null}
         </section>
-      </aside>
-    </>
+      </div>
+    </div>
   );
-}
+});

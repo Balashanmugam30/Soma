@@ -10,9 +10,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeProvider>
-          <LanguageProvider>{children}</LanguageProvider>
-        </ThemeProvider>
+        <LanguageProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </LanguageProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -24,17 +24,17 @@ export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean)
 let firebaseApp: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
-let googleProvider: GoogleAuthProvider | null = null;
+let provider: GoogleAuthProvider | null = null;
 
 if (isFirebaseConfigured) {
   firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(firebaseApp);
   db = getFirestore(firebaseApp);
-  googleProvider = new GoogleAuthProvider();
-  googleProvider.setCustomParameters({ prompt: "select_account" });
+  provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
 }
 
-export { auth, db, googleProvider };
+export { auth, db, provider };
 
 export async function enableAuthPersistence() {
   if (!auth) {

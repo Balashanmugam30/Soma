@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
 import { cn } from "@/lib/utils";
 
 interface ModalProps {
@@ -21,6 +22,8 @@ export function Modal({
   onClose,
   widthClassName,
 }: ModalProps) {
+  const { dictionary } = useLanguage();
+
   useEffect(() => {
     if (!open) {
       return;
@@ -64,7 +67,7 @@ export function Modal({
           </div>
           <button
             type="button"
-            aria-label="Close modal"
+            aria-label={dictionary.common.close}
             onClick={onClose}
             className="rounded-full p-2 text-muted transition hover:bg-hover hover:text-foreground"
           >

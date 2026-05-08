@@ -1,14 +1,20 @@
-import type { Language, Skill, ThemeMode, WorkflowStep } from "@/types";
+import type { AgentRuntime, Language, Skill, ThemeMode, WorkflowStep } from "@/types";
 
 export const STORAGE_KEYS = {
-  language: "soma-language",
+  language: "soma_language",
   theme: "soma-theme",
+  conversations: "soma-conversations",
+  activeChat: "soma-active-chat",
+  skills: "soma-skills",
+  selectedSkill: "soma-selected-skill",
+  draft: "soma-draft",
+  attachment: "soma-attachment",
 } as const;
 
 export const LANGUAGE_OPTIONS: Array<{ value: Language; label: string }> = [
   { value: "en", label: "English" },
-  { value: "ta", label: "Tamil" },
-  { value: "hi", label: "Hindi" },
+  { value: "ta", label: "தமிழ்" },
+  { value: "hi", label: "हिन्दी" },
 ];
 
 export const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
@@ -19,49 +25,64 @@ export const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
 
 export const DEFAULT_SKILLS: Skill[] = [
   {
+    id: "study-planner",
+    title: "Study Planner",
+    name: "Study Planner",
+    description: "Design focused study schedules, exam plans, and revision sequences.",
+    prompt:
+      "Create efficient study plans with learning goals, revision rhythm, and milestone checkpoints.",
+    content:
+      "Create efficient study plans with learning goals, revision rhythm, and milestone checkpoints.",
+    category: "planner",
+    createdAt: "system",
+    isSystem: true,
+  },
+  {
+    id: "task-manager",
+    title: "Task Manager",
+    name: "Task Manager",
+    description: "Turn scattered tasks into prioritized action plans and focused execution.",
+    prompt:
+      "Organize work into actionable tasks, priorities, dependencies, and realistic execution order.",
+    content:
+      "Organize work into actionable tasks, priorities, dependencies, and realistic execution order.",
+    category: "controller",
+    createdAt: "system",
+    isSystem: true,
+  },
+  {
+    id: "research-assistant",
+    title: "Research Assistant",
+    name: "Research Assistant",
+    description: "Structure research questions, comparisons, summaries, and insight synthesis.",
+    prompt:
+      "Support research with structured investigation, comparisons, summaries, and balanced analysis.",
+    content:
+      "Support research with structured investigation, comparisons, summaries, and balanced analysis.",
+    category: "executor",
+    createdAt: "system",
+    isSystem: true,
+  },
+];
+
+export const DEFAULT_AGENTS: AgentRuntime[] = [
+  {
+    id: "controller",
+    name: "Office Agent",
+    description: "Manages meetings, tasks, and work schedules.",
+    status: "idle",
+  },
+  {
     id: "planner",
-    title: "Daily Planner",
-    description: "Turn loose goals into a structured, realistic day plan.",
-    prompt:
-      "Break requests into focused tasks with priorities, time blocks, and clear next steps.",
-    createdAt: "system",
-    isSystem: true,
+    name: "Student Agent",
+    description: "Handles study plans, exams, and learning goals.",
+    status: "idle",
   },
   {
-    id: "study-coach",
-    title: "Study Coach",
-    description: "Build smart study schedules, revision plans, and learning routines.",
-    prompt:
-      "Create study plans with sessions, milestones, retention strategy, and motivation checkpoints.",
-    createdAt: "system",
-    isSystem: true,
-  },
-  {
-    id: "task-organizer",
-    title: "Task Organizer",
-    description: "Sort ideas into action items, categories, and execution order.",
-    prompt:
-      "Organize tasks into categories, dependencies, priorities, and clean execution sequences.",
-    createdAt: "system",
-    isSystem: true,
-  },
-  {
-    id: "meeting-brief",
-    title: "Meeting Brief",
-    description: "Prepare concise agendas, talking points, and follow-up summaries.",
-    prompt:
-      "Draft concise meeting agendas, action items, and decision summaries with professional tone.",
-    createdAt: "system",
-    isSystem: true,
-  },
-  {
-    id: "creative-writer",
-    title: "Creative Writer",
-    description: "Shape raw ideas into polished drafts, outlines, and variations.",
-    prompt:
-      "Transform rough ideas into clear drafts with tone suggestions, structure, and polished phrasing.",
-    createdAt: "system",
-    isSystem: true,
+    id: "executor",
+    name: "Life Agent",
+    description: "Helps plan daily life, habits, and routines.",
+    status: "idle",
   },
 ];
 

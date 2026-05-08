@@ -1,17 +1,79 @@
-frontend/node_modules
-frontend/.next
-frontend/build
-frontend/out
+# =========================
+# Frontend Dependencies
+# =========================
+frontend/node_modules/
+
+# =========================
+# Next.js
+# =========================
+frontend/.next/
+frontend/build/
+frontend/dist/
+
+# =========================
+# Python
+# =========================
+backend/__pycache__/
+backend/**/*.pyc
+*.py[cod]
+
+# =========================
+# Environment Files
+# =========================
+backend/.env
+backend/.env.*
 frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
-frontend/coverage
+
+# =========================
+# Secrets & Credentials
+# =========================
+backend/*.json
+*.pem
+
+# =========================
+# Logs
+# =========================
+*.log
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/.pnpm-debug.log*
+
+# =========================
+# Coverage / Cache
+# =========================
+frontend/coverage
+.cache/
+tmp/
+temp/
+
+# =========================
+# Deployment
+# =========================
 frontend/.vercel
+
+# =========================
+# TypeScript
+# =========================
 frontend/*.tsbuildinfo
+
+# =========================
+# AI / Docs
+# =========================
 frontend/AGENTS.md
 frontend/CLAUDE.md
+
+# =========================
+# Virtual Environments
+# =========================
+.venv/
+venv/
+
+# =========================
+# System Files
+# =========================
+.DS_Store
+Thumbs.db
